@@ -57,7 +57,7 @@ pipeline {
         stage('Clone Repository') {
             steps {
                 // Clone your GitHub repository
-                git 'https://github.com/Mohit722/SonarQube-AWS-Instance.git' // Replace with your repository
+                git 'https://github.com/Mohit722/SonarQube-AWS-Terraform.git' // Replace with your repository
             }
         }
         
