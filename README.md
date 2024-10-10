@@ -1,8 +1,9 @@
 # SonarQube-AWS-Instance-Terraform Setup
+-----------------------------------------
+
 This repository contains a Terraform script for provisioning an EC2 instance on AWS and running SonarQube in a Docker container. It also includes a Jenkins pipeline configuration for automated deployment.
 
-Prerequisites:
-
+# Prerequisites:
 Before you begin, ensure you have the following:
 
 - AWS Account: You need an AWS account with IAM access.
@@ -11,15 +12,16 @@ Before you begin, ensure you have the following:
 - Git: To clone the repository.
 - Docker: The Docker image for SonarQube will be pulled during the instance setup.
 
- Repository Structure
+
+ # Repository Structure
 
 ```
 ├── Jenkinsfile
-└── terraform
-    └── main.tf
+└── main.tf
+    
 ```
 
- Terraform Configuration
+ # Terraform Configuration
 
 The `main.tf` file contains the Terraform configuration to provision the EC2 instance and install SonarQube.
 
@@ -31,62 +33,84 @@ The `main.tf` file contains the Terraform configuration to provision the EC2 ins
  
  Jenkins Pipeline
 
- Jenkinsfile
+ # Jenkinsfile
 
 The Jenkinsfile contains the pipeline script to automate the deployment process. Here is a sample pipeline configuration:
 
 
 pipeline {
-    agent {
-        label 'TERRAFORMCORE'
+    agent { label 'TERRAFORMCORE' } // Use the label of your Terraform node
+    parameters {
+        choice(name: 'ACTION', choices: ['Create', 'Destroy'], description: 'Select action to perform')
     }
+
     stages {
+        
+        stage('Setup AWS Credentials') {
+            steps {
+                // Unset any existing AWS credentials to avoid conflicts
+                sh 'unset AWS_ACCESS_KEY_ID'
+                sh 'unset AWS_SECRET_ACCESS_KEY'
+            }
+        }
+        
         stage('Clone Repository') {
             steps {
-                git 'https://github.com/your-username/your-repository.git'
+                // Clone your GitHub repository
+                git 'https://github.com/Mohit722/SonarQube-AWS-Instance.git' // Replace with your repository
             }
         }
-        stage('Terraform Init') {
+        
+        // Combined stage for init, validate, and plan
+        stage('Terraform Setup and Plan') {
+            when {
+                expression { params.ACTION == 'Create' } // Run this stage only if 'Create' is selected
+            }
             steps {
-                dir('terraform') {
-                    sh 'terraform init'
+                dir("${WORKSPACE}") { // Change to your repo folder if necessary
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_credentials']]) {
+                        sh '''
+                        terraform init
+                        terraform validate
+                        terraform plan
+                        '''
+                    }
                 }
             }
         }
-        stage('Terraform Validate') {
-            steps {
-                dir('terraform') {
-                    sh 'terraform validate'
-                }
-            }
-        }
-        stage('Terraform Plan') {
-            steps {
-                dir('terraform') {
-                    sh 'terraform plan -out=tfplan'
-                }
-            }
-        }
+        
         stage('Terraform Apply') {
+            when {
+                expression { params.ACTION == 'Create' } // Run this stage only if 'Create' is selected
+            }
             steps {
-                dir('terraform') {
-                    sh 'terraform apply -auto-approve tfplan'
+                dir("${WORKSPACE}") { // Change to your repo folder if necessary
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_credentials']]) {
+                        sh 'terraform apply -auto-approve'
+                    }
                 }
             }
         }
-    }
-    post {
-        success {
-            echo 'SonarQube instance has been created successfully!'
-        }
-        failure {
-            echo 'There was an error creating the SonarQube instance.'
-        }
-    }
+        
+        stage('Terraform Destroy') {
+            when {
+                expression { params.ACTION == 'Destroy' } // Run this stage only if 'Destroy' is selected
+            }
+            steps {
+                dir("${WORKSPACE}") {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_credentials']]) {
+                      sh 'terraform destroy -auto-approve'
+                 }
+             }
+         }
+      }    
+   }
 }
 
 
- Steps to Set Up Jenkins Pipeline
+
+
+# Steps to Set Up Jenkins Pipeline
 
 1. Create a New Pipeline Job:
    - Go to your Jenkins dashboard.
@@ -105,7 +129,8 @@ pipeline {
    - Save the job configuration and click "Build Now" to run the pipeline.
    - Monitor the build logs for any issues.
 
- Accessing SonarQube
+
+ # Accessing SonarQube
 
 Once the instance is created successfully, you can access SonarQube at `http://<public-ip>:9000` using the default credentials:
 - Username: `admin`
