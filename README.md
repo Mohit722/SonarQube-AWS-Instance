@@ -31,7 +31,7 @@ The `main.tf` file contains the Terraform configuration to provision the EC2 ins
 - Resource: Defines the `aws_instance` resource with a provisioner that installs Docker and runs SonarQube.
 
  
- Jenkins Pipeline
+ 
 
  # Jenkinsfile
 
